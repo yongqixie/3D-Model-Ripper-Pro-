@@ -1,0 +1,56 @@
+name: Build EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller playwright pyqt5 requests pillow
+        
+    - name: Install Playwright browsers
+      run: |
+        playwright install chromium
+        
+    - name: Convert icon
+      run: |
+        python -c "from PIL import Image; img = Image.open('assets/icons/ripper-x_256.png'); img.save('assets/icons/ripper-x.ico', format='ICO', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+        
+    - name: Build EXE
+      run: |
+        pyinstaller --clean --onefile --windowed --icon=assets/icons/ripper-x.ico --name "3D_Model_Ripper_Pro" --add-data "assets/icons;assets/icons" --add-data "downloaders;downloaders" main.py
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: 3D_Model_Ripper_Pro
+        path: dist/3D_Model_Ripper_Pro.exe
+        
+    - name: Create Release
+      if: github.event_name == 'push'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/3D_Model_Ripper_Pro.exe
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        body: |
+          3D Model Ripper Pro 自动构建版本
+          - 构建时间: ${{ github.event.head_commit.timestamp }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
